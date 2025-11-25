@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mycelium Idle – Tier 1</title>
+  <style>
+    /*
+      Retro/ASCII inspired styling.  This file is intentionally simple and
+      uses a dark background with bright green text reminiscent of old
+      terminals.  Layout is kept flexible so the UI scales to fill
+      available space.  Monospace fonts help reinforce the retro feel.
+    */
+    :root {
+      --bg: #111;
+      --fg: #0f0;
+      --accent: #0a0;
+      --panel-bg: #020;
+      --panel-border: #050;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Courier New", monospace;
+      background-color: var(--bg);
+      color: var(--fg);
+      line-height: 1.4;
+      overflow-x: hidden;
+    }
+    h1, h2, h3 {
+      margin-top: 0.5em;
+      margin-bottom: 0.25em;
+      color: var(--accent);
+    }
+    .container {
+      padding: 1rem;
+      max-width: 1200px;
+      margin: auto;
+    }
+    .panel {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 4px;
+    }
+    .panel h2 {
+      margin-top: 0;
+    }
+    button {
+      background-color: var(--bg);
+      color: var(--fg);
+      border: 1px solid var(--fg);
+      border-radius: 3px;
+      padding: 0.25em 0.5em;
+      cursor: pointer;
+      font-family: inherit;
+      margin: 0.25em 0;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .flex {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .flex-column {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .resource-line {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .generator-item, .upgrade-item, .mutation-item {
+      border: 1px dashed var(--panel-border);
+      padding: 0.5em;
+      border-radius: 3px;
+      margin-bottom: 0.5em;
+    }
+    .progress-bar {
+      position: relative;
+      background-color: #022;
+      border: 1px solid var(--panel-border);
+      height: 16px;
+      width: 100%;
+      border-radius: 3px;
+      margin-top: 0.25em;
+    }
+    .progress-bar > .fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      background-color: var(--accent);
+      width: 0%;
+    }
+    .biome-name {
+      font-weight: bold;
+      font-size: 1.1em;
+      text-decoration: underline;
+    }
+    .subtitle {
+      font-style: italic;
+      color: #8f8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Mycelium Idle – Tier 1</h1>
+
+    <!-- Resource display -->
+    <div class="panel" id="resourcePanel">
+      <h2>Resources</h2>
+      <div class="resource-line">Hyphae: <span id="hyphaeDisplay">0</span></div>
+      <div class="resource-line">Nutrients: <span id="nutrientsDisplay">0</span></div>
+      <div class="resource-line">Biomass: <span id="biomassDisplay">0</span></div>
+      <div class="resource-line">Spores (Prestige Currency): <span id="sporePoolDisplay">0</span></div>
+      <button id="clickHyphaeBtn">[+] Extend Hyphae</button>
+    </div>
+
+    <!-- Generators -->
+    <div class="panel" id="generatorsPanel">
+      <h2>Generators</h2>
+      <div id="generatorsList" class="flex-column"></div>
+    </div>
+
+    <!-- Biomes & Substrates -->
+    <div class="panel" id="biomesPanel">
+      <h2>Biome Progress</h2>
+      <div class="biome-name" id="currentBiomeName">Starting...</div>
+      <div id="biomeBonus" class="subtitle"></div>
+      <div id="substrateList" class="flex-column"></div>
+      <button id="nextBiomeBtn" disabled>Enter Next Biome</button>
+    </div>
+
+    <!-- Prestige & Mutations -->
+    <div class="panel" id="prestigePanel">
+      <h2>Prestige & Mutations</h2>
+      <button id="prestigeBtn">Prestige (Reset & Gain Spores)</button>
+      <div id="mutationChoice" class="flex-column" style="display:none;">
+        <h3>Select a Mutation for this Run</h3>
+        <div id="mutationOptions"></div>
+        <button id="confirmMutationBtn">Confirm Mutation Selection</button>
+      </div>
+    </div>
+
+    <!-- Permanent Upgrades -->
+    <div class="panel" id="upgradesPanel">
+      <h2>Permanent Upgrades (Spore Investments)</h2>
+      <div id="upgradeList" class="flex-column"></div>
+    </div>
+  </div>
+
+  <script>
+  /*
+    Tier 1 idle/clicker simulation logic.
+    All game state is contained in simple JavaScript objects.  Time is
+    advanced via setInterval.  Data structures are designed for easy
+    extension to future tiers.  Comments throughout explain what each
+    section does.
+  */
+  (function() {
+    // Core state for the current run
+    const state = {
+      hyphae: 0,
+      nutrients: 0,
+      biomass: 0,
+      spores: 0,
+      // Purchased generator counts
+      generators: {
+        branching: 0,
+        leaf: 0,
+        log: 0
+      },
+      // Permanent upgrades purchased (true/false)
+      upgrades: {},
+      // Mutation for current run (object with modifiers)
+      activeMutation: null,
+      // Flags controlling UI / progress
+      currentBiomeIndex: 0,
+      runNumber: 1,
+      mutationSelectionPending: false
+    };
+
+    // Definition of permanent upgrades available in Tier 1
+    const upgrades = {
+      hyphaeBoost1: {
+        name: 'Hyphae Boost I',
+        description: '+10% global Hyphae production',
+        cost: 5,
+        apply() { modifiers.hyphaeMultiplier += 0.10; }
+      },
+      clickBoost1: {
+        name: 'Click Efficiency I',
+        description: '+20% manual Hyphae from clicking',
+        cost: 5,
+        apply() { modifiers.clickMultiplier += 0.20; }
+      },
+      branchingBoost1: {
+        name: 'Branching Tips Boost I',
+        description: '+10% Branching Tip output',
+        cost: 8,
+        apply() { modifiers.branchingMultiplier += 0.10; }
+      },
+      nutrientBoost1: {
+        name: 'Nutrient Flow I',
+        description: '+10% nutrient production',
+        cost: 8,
+        apply() { modifiers.nutrientMultiplier += 0.10; }
+      },
+      leafBoost1: {
+        name: 'Leaf Decomposer Boost I',
+        description: '+15% Leaf Decomposer output',
+        cost: 10,
+        apply() { modifiers.leafMultiplier += 0.15; }
+      },
+      biomassBoost1: {
+        name: 'Biomass Gain I',
+        description: '+5% biomass gain',
+        cost: 10,
+        apply() { modifiers.biomassMultiplier += 0.05; }
+      },
+      logBoost1: {
+        name: 'Log Enzyme Boost I',
+        description: '+10% Log Enzyme biomass bonus',
+        cost: 12,
+        apply() { modifiers.logMultiplier += 0.10; }
+      },
+      // Nodes to unlock mutation cards
+      unlockFocusedGrowth: {
+        name: 'Unlock Mutation: Focused Growth',
+        description: 'Adds Focused Growth mutation to the pool',
+        cost: 10,
+        apply() { if(!availableMutations.includes(mutationCards.focusedGrowth)) availableMutations.push(mutationCards.focusedGrowth); }
+      },
+      unlockLogEfficiency: {
+        name: 'Unlock Mutation: Log Efficiency',
+        description: 'Adds Log Enzyme Efficiency mutation to the pool',
+        cost: 10,
+        apply() { if(!availableMutations.includes(mutationCards.logEfficiency)) availableMutations.push(mutationCards.logEfficiency); }
+      },
+      unlockBurst: {
+        name: 'Unlock Mutation: Mycelial Burst',
+        description: 'Adds Runaway Mycelium Burst mutation to the pool',
+        cost: 20,
+        apply() { if(!availableMutations.includes(mutationCards.burst)) availableMutations.push(mutationCards.burst); }
+      }
+    };
+
+    // Default multipliers (modified by upgrades/mutations)
+    const modifiers = {
+      hyphaeMultiplier: 1,
+      clickMultiplier: 1,
+      branchingMultiplier: 1,
+      nutrientMultiplier: 1,
+      leafMultiplier: 1,
+      logMultiplier: 1,
+      biomassMultiplier: 1,
+      substrateSpeed: 1
+    };
+
+    // Mutation cards definitions (temporary per run)
+    const mutationCards = {
+      hyphaSurge: {
+        name: 'Hypha Surge',
+        description: '+25% Hyphae production this run',
+        effect() { modifiers.hyphaeMultiplier += 0.25; }
+      },
+      efficientBranching: {
+        name: 'Efficient Branching',
+        description: 'Branching Tips produce +15% more Hyphae this run',
+        effect() { modifiers.branchingMultiplier += 0.15; }
+      },
+      acceleratedDecay: {
+        name: 'Accelerated Decay',
+        description: 'Leaf Decomposers generate +20% Nutrients this run',
+        effect() { modifiers.leafMultiplier += 0.20; }
+      },
+      // Locked at start; can be unlocked via spores
+      focusedGrowth: {
+        name: 'Focused Growth',
+        description: 'Clicking produces +50% more Hyphae this run',
+        effect() { modifiers.clickMultiplier += 0.50; }
+      },
+      logEfficiency: {
+        name: 'Log Efficiency',
+        description: 'Log Enzymes produce +15% more Biomass this run',
+        effect() { modifiers.logMultiplier += 0.15; }
+      },
+      burst: {
+        name: 'Runaway Mycelial Burst',
+        description: 'Every 60 seconds gain a burst of Hyphae equal to 30 seconds of production',
+        // For burst, we schedule a timer each run
+        effect() {
+          const interval = setInterval(() => {
+            const production = (state.generators.branching * baseRates.hyphaePerTip * modifiers.branchingMultiplier * modifiers.hyphaeMultiplier);
+            const burstAmount = production * 30;
+            state.hyphae += burstAmount;
+            updateResourceDisplay();
+          }, 60000);
+          activeTimers.push(interval);
+        }
+      }
+    };
+
+    // Initially available mutation cards (others unlocked via upgrades)
+    const availableMutations = [
+      mutationCards.hyphaSurge,
+      mutationCards.efficientBranching,
+      mutationCards.acceleratedDecay
+    ];
+
+    // Generators definitions with base cost and rate
+    const generatorDefs = {
+      branching: {
+        name: 'Branching Tip',
+        baseCost: 10,
+        resource: 'hyphae',
+        outputDesc: 'Hyphae/sec',
+        baseRate: 1 // base hyphae per second per tip
+      },
+      leaf: {
+        name: 'Leaf Decomposer',
+        baseCost: 50,
+        resource: 'hyphae',
+        outputDesc: 'Nutrients/sec',
+        baseRate: 0.5 // base nutrient per second per decomposer
+      },
+      log: {
+        name: 'Log Enzyme',
+        baseCost: 100,
+        resource: 'nutrients',
+        outputDesc: 'Nutrients & Biomass/sec',
+        baseNutrientRate: 0.2,
+        baseBiomassRate: 0.05
+      }
+    };
+
+    // Base output rates used in calculations (subject to multipliers)
+    const baseRates = {
+      hyphaePerTip: generatorDefs.branching.baseRate,
+      nutrientPerDecomposer: generatorDefs.leaf.baseRate,
+      nutrientPerLog: generatorDefs.log.baseNutrientRate,
+      biomassPerLog: generatorDefs.log.baseBiomassRate
+    };
+
+    // Biomes definitions
+    const biomes = [
+      {
+        name: 'Soil Patch',
+        description: '+5% click hyphae',
+        bonus: () => { modifiers.clickMultiplier += 0.05; },
+        substrates: [
+          { id: 'debris1', type: 'Small Debris', mass: 20, progress: 0, leafFactor: 0.0, logFactor: 0.0, branchingFactor: 0.2, dripReward: { hyphae: 0, nutrients: 0 }, completionReward: { hyphae: 0, nutrients: 0, biomass: 0.1 } }
+        ],
+        unlocks: ['branching']
+      },
+      {
+        name: 'Leaf Litter',
+        description: '+10% nutrient output',
+        bonus: () => { modifiers.nutrientMultiplier += 0.10; },
+        substrates: (() => {
+          const arr = [];
+          for(let i=0;i<10;i++) arr.push({ id: 'leaf'+i, type: 'Leaf Pile', mass: 40, progress: 0, leafFactor: 1.0, logFactor: 0.0, branchingFactor: 0.1, dripReward: { hyphae: 0, nutrients: 0.1 }, completionReward: { hyphae: 0, nutrients: 0, biomass: 0.3 } });
+          for(let i=0;i<3;i++) arr.push({ id: 'twig'+i, type: 'Twig Debris', mass: 25, progress: 0, leafFactor: 0.8, logFactor: 0.0, branchingFactor: 0.1, dripReward: { hyphae: 0, nutrients: 0.05 }, completionReward: { hyphae: 0, nutrients: 0, biomass: 0.2 } });
+          return arr;
+        })(),
+        unlocks: ['leaf']
+      },
+      {
+        name: 'Decaying Log',
+        description: '+15% nutrient output & +50% biomass yield',
+        bonus: () => { modifiers.nutrientMultiplier += 0.15; modifiers.biomassMultiplier += 0.50; },
+        substrates: (() => {
+          const arr = [];
+          for(let i=0;i<5;i++) arr.push({ id: 'log'+i, type: 'Decaying Log', mass: 100, progress: 0, leafFactor: 0.2, logFactor: 1.0, branchingFactor: 0.05, dripReward: { hyphae: 0, nutrients: 0.05 }, completionReward: { hyphae: 0, nutrients: 0, biomass: 2 } });
+          for(let i=0;i<2;i++) arr.push({ id: 'bark'+i, type: 'Bark Slab', mass: 60, progress: 0, leafFactor: 0.2, logFactor: 0.8, branchingFactor: 0.05, dripReward: { hyphae: 0, nutrients: 0.05 }, completionReward: { hyphae: 0, nutrients: 0, biomass: 1 } });
+          return arr;
+        })(),
+        unlocks: ['log']
+      }
+    ];
+
+    // Track timers for mutations that schedule intervals (e.g. bursts)
+    const activeTimers = [];
+
+    // Utility: recalculate generator cost (exponential growth)
+    function getCost(gen) {
+      const def = generatorDefs[gen];
+      const count = state.generators[gen];
+      return Math.floor(def.baseCost * Math.pow(1.15, count));
+    }
+
+    // Update resource display
+    function updateResourceDisplay() {
+      document.getElementById('hyphaeDisplay').innerText = Math.floor(state.hyphae);
+      document.getElementById('nutrientsDisplay').innerText = Math.floor(state.nutrients);
+      document.getElementById('biomassDisplay').innerText = state.biomass.toFixed(2);
+      document.getElementById('sporePoolDisplay').innerText = Math.floor(state.spores);
+    }
+
+    // Render generator list
+    function renderGenerators() {
+      const container = document.getElementById('generatorsList');
+      container.innerHTML = '';
+      Object.keys(generatorDefs).forEach(key => {
+        const def = generatorDefs[key];
+        const biomeUnlocks = biomes[state.currentBiomeIndex].unlocks;
+        const unlocked = biomeUnlocks.includes(key) || state.generators[key] > 0;
+        if(!unlocked) return;
+        const cost = getCost(key);
+        const item = document.createElement('div');
+        item.className = 'generator-item';
+        item.innerHTML = `
+          <strong>${def.name}</strong><br>
+          Count: ${state.generators[key]}<br>
+          Produces: ${def.outputDesc}<br>
+          Cost: ${cost} ${def.resource}<br>
+        `;
+        const btn = document.createElement('button');
+        btn.innerText = `Buy ${def.name}`;
+        btn.disabled = state[def.resource] < cost;
+        btn.addEventListener('click', () => {
+          buyGenerator(key, cost);
+        });
+        item.appendChild(btn);
+        container.appendChild(item);
+      });
+    }
+
+    function buyGenerator(key, cost) {
+      const def = generatorDefs[key];
+      if(state[def.resource] >= cost) {
+        state[def.resource] -= cost;
+        state.generators[key]++;
+        renderGenerators();
+        updateResourceDisplay();
+      }
+    }
+
+    // Render upgrades list
+    function renderUpgrades() {
+      const list = document.getElementById('upgradeList');
+      list.innerHTML = '';
+      Object.keys(upgrades).forEach(id => {
+        const up = upgrades[id];
+        const div = document.createElement('div');
+        div.className = 'upgrade-item';
+        const purchased = !!state.upgrades[id];
+        div.innerHTML = `
+          <strong>${up.name}</strong> ${purchased ? '[Owned]' : ''}<br>
+          ${up.description}<br>
+          Cost: ${up.cost} spores
+        `;
+        const btn = document.createElement('button');
+        btn.innerText = purchased ? 'Purchased' : 'Buy Upgrade';
+        btn.disabled = purchased || state.spores < up.cost;
+        btn.addEventListener('click', () => {
+          if(purchased || state.spores < up.cost) return;
+          state.spores -= up.cost;
+          state.upgrades[id] = true;
+          up.apply();
+          renderUpgrades();
+          updateResourceDisplay();
+        });
+        div.appendChild(btn);
+        list.appendChild(div);
+      });
+    }
+
+    // Render current biome and substrates
+    function renderBiome() {
+      const biome = biomes[state.currentBiomeIndex];
+      document.getElementById('currentBiomeName').innerText = biome.name;
+      document.getElementById('biomeBonus').innerText = biome.description;
+      const list = document.getElementById('substrateList');
+      list.innerHTML = '';
+      biome.substrates.forEach(sub => {
+        const div = document.createElement('div');
+        div.className = 'substrate-item';
+        const done = sub.progress >= sub.mass;
+        div.innerHTML = `<strong>${sub.type}</strong> ${done ? '[Decomposed]' : ''}`;
+        const progressBar = document.createElement('div');
+        progressBar.className = 'progress-bar';
+        const fill = document.createElement('div');
+        fill.className = 'fill';
+        const pct = Math.min(100, (sub.progress / sub.mass) * 100);
+        fill.style.width = pct + '%';
+        progressBar.appendChild(fill);
+        div.appendChild(progressBar);
+        list.appendChild(div);
+      });
+      const allDone = biome.substrates.every(sub => sub.progress >= sub.mass);
+      document.getElementById('nextBiomeBtn').disabled = !allDone;
+    }
+
+    // Advance to next biome
+    function nextBiome() {
+      if(state.currentBiomeIndex < biomes.length - 1) {
+        state.currentBiomeIndex++;
+        biomes[state.currentBiomeIndex].bonus();
+        renderGenerators();
+        renderBiome();
+      }
+    }
+
+    // Run update loop: produce resources and decompose substrates
+    function gameTick(delta) {
+      const hyphaePerTick = state.generators.branching * baseRates.hyphaePerTip * modifiers.branchingMultiplier * modifiers.hyphaeMultiplier;
+      state.hyphae += hyphaePerTick * delta;
+      const nutrientsFromLeaf = state.generators.leaf * baseRates.nutrientPerDecomposer * modifiers.leafMultiplier * modifiers.nutrientMultiplier;
+      const nutrientsFromLog = state.generators.log * baseRates.nutrientPerLog * modifiers.logMultiplier * modifiers.nutrientMultiplier;
+      const biomassFromLog = state.generators.log * baseRates.biomassPerLog * modifiers.logMultiplier * modifiers.biomassMultiplier;
+      state.nutrients += (nutrientsFromLeaf + nutrientsFromLog) * delta;
+      state.biomass += biomassFromLog * delta;
+
+      const biome = biomes[state.currentBiomeIndex];
+      biome.substrates.forEach(sub => {
+        if(sub.progress >= sub.mass) return;
+        const contribution =
+          state.generators.branching * sub.branchingFactor +
+          state.generators.leaf * sub.leafFactor +
+          state.generators.log * sub.logFactor;
+        const rate = contribution * modifiers.substrateSpeed;
+        sub.progress += rate * delta;
+        if(sub.dripReward) {
+          state.hyphae += (sub.dripReward.hyphae || 0) * delta;
+          state.nutrients += (sub.dripReward.nutrients || 0) * delta;
+        }
+        if(sub.progress >= sub.mass && !sub.completed) {
+          sub.completed = true;
+          state.hyphae += sub.completionReward.hyphae || 0;
+          state.nutrients += sub.completionReward.nutrients || 0;
+          state.biomass += sub.completionReward.biomass || 0;
+        }
+      });
+
+      updateResourceDisplay();
+      renderBiome();
+    }
+
+    // Prestige: end run, award spores based on biomass, reset state (except permanent upgrades & spore pool)
+    function prestige() {
+      const earned = Math.floor(state.biomass / 10);
+      state.spores += earned;
+      state.hyphae = 0;
+      state.nutrients = 0;
+      state.biomass = 0;
+      state.generators.branching = 0;
+      state.generators.leaf = 0;
+      state.generators.log = 0;
+      state.currentBiomeIndex = 0;
+      state.runNumber++;
+      resetModifiers();
+      applyPermanentUpgrades();
+      activeTimers.forEach(id => clearInterval(id));
+      activeTimers.length = 0;
+      state.activeMutation = null;
+      biomes.forEach(biome => {
+        biome.substrates.forEach(sub => {
+          sub.progress = 0;
+          delete sub.completed;
+        });
+      });
+      state.mutationSelectionPending = true;
+      document.getElementById('mutationChoice').style.display = 'block';
+      const optionsContainer = document.getElementById('mutationOptions');
+      optionsContainer.innerHTML = '';
+      const shuffled = [...availableMutations].sort(() => Math.random() - 0.5);
+      const options = shuffled.slice(0, Math.min(3, shuffled.length));
+      options.forEach((card, idx) => {
+        const div = document.createElement('div');
+        div.className = 'mutation-item';
+        div.innerHTML = `<strong>${card.name}</strong><br>${card.description}`;
+        div.addEventListener('click', () => {
+          Array.from(optionsContainer.children).forEach(el => el.style.borderColor = 'var(--panel-border)');
+          div.style.borderColor = '#ff0';
+          selectedMutationIndex = idx;
+        });
+        optionsContainer.appendChild(div);
+      });
+      selectedMutationIndex = null;
+      renderGenerators();
+      renderBiome();
+      renderUpgrades();
+      updateResourceDisplay();
+    }
+
+    function resetModifiers() {
+      modifiers.hyphaeMultiplier = 1;
+      modifiers.clickMultiplier = 1;
+      modifiers.branchingMultiplier = 1;
+      modifiers.nutrientMultiplier = 1;
+      modifiers.leafMultiplier = 1;
+      modifiers.logMultiplier = 1;
+      modifiers.biomassMultiplier = 1;
+      modifiers.substrateSpeed = 1;
+    }
+    function applyPermanentUpgrades() {
+      Object.keys(state.upgrades).forEach(id => {
+        if(state.upgrades[id]) {
+          upgrades[id].apply();
+        }
+      });
+    }
+
+    // Mutation selection handlers
+    let selectedMutationIndex = null;
+    document.getElementById('confirmMutationBtn').addEventListener('click', () => {
+      if(state.mutationSelectionPending) {
+        const options = document.getElementById('mutationOptions').children;
+        if(selectedMutationIndex === null) return;
+        const pool = [...availableMutations].sort(() => Math.random() - 0.5).slice(0, Math.min(3, availableMutations.length));
+        const chosen = pool[selectedMutationIndex];
+        state.activeMutation = chosen;
+        chosen.effect();
+        document.getElementById('mutationChoice').style.display = 'none';
+        state.mutationSelectionPending = false;
+        biomes[state.currentBiomeIndex].bonus();
+        renderGenerators();
+        renderBiome();
+        updateResourceDisplay();
+      }
+    });
+
+    // Event listeners
+    document.getElementById('clickHyphaeBtn').addEventListener('click', () => {
+      const amt = 1 * modifiers.clickMultiplier * modifiers.hyphaeMultiplier;
+      state.hyphae += amt;
+      updateResourceDisplay();
+    });
+    document.getElementById('nextBiomeBtn').addEventListener('click', nextBiome);
+    document.getElementById('prestigeBtn').addEventListener('click', () => {
+      prestige();
+    });
+
+    // Initial render
+    function initGame() {
+      biomes[state.currentBiomeIndex].bonus();
+      renderGenerators();
+      renderBiome();
+      renderUpgrades();
+      updateResourceDisplay();
+    }
+    initGame();
+
+    // Main game loop
+    let lastTime = Date.now();
+    setInterval(() => {
+      if(state.mutationSelectionPending) return;
+      const now = Date.now();
+      const delta = (now - lastTime) / 1000;
+      lastTime = now;
+      gameTick(delta);
+    }, 250);
+  })();
+  </script>
+</body>
+</html>
