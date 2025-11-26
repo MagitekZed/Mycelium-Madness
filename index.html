@@ -1,95 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mycelium Idle</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mycelium Idle – Tier 1</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Main layout split into three columns: environment, core actions, stats -->
-  <div id="mainLayout">
-    <!-- Left column: biome environment and substrate list -->
-    <div id="leftColumn">
-      <h2>Biome &amp; Substrates</h2>
-      <!-- Current biome name and description -->
-      <h3 id="currentBiomeName">Biome</h3>
-      <p id="biomeBonus" class="subtitle">Bonus description</p>
-      <!-- List of substrates with ASCII progress bars. Clicking on a substrate selects it for decomposition. -->
-      <div id="substrateList" class="panel"></div>
-      <!-- Remaining and active substrate counts for quick reference -->
-      <div class="panel" id="substrateInfo">
-        <div>Active Slots: <span id="activeSlotCount">1</span> / <span id="maxSlotCount">1</span></div>
-        <div>Remaining Substrates: <span id="remainingCount">0</span></div>
-      </div>
-      <!-- Button to move to the next biome (enabled when all substrates cleared) -->
-      <button id="nextBiomeBtn">Enter Next Biome</button>
-    </div>
+  <div class="container">
+    <h1>Mycelium Idle – Tier 1</h1>
 
-    <!-- Center column: resources and generators -->
-    <div id="centerColumn">
-      <div class="panel" id="resourcePanel">
-        <h2>Resources</h2>
-        <div class="resource-line">Hyphae: <span id="hyphaeDisplay">0</span></div>
-        <div class="resource-line">Nutrients: <span id="nutrientsDisplay">0</span></div>
-        <div class="resource-line">Biomass: <span id="biomassDisplay">0.00</span></div>
-        <div class="resource-line">Spores: <span id="sporePoolDisplay">0</span></div>
-        <!-- Click button to produce hyphae -->
-        <button id="clickHyphaeBtn">Extend Hyphae</button>
-      </div>
-      <div class="panel" id="generatorPanel">
-        <h2>Generators</h2>
-        <div id="generatorsList"></div>
-      </div>
-    </div>
+    <div class="main-columns">
+      <!-- LEFT: Resources & Generators -->
+      <div class="column" id="leftColumn">
+        <div class="panel" id="resourcePanel">
+          <h2>Resources</h2>
+          <div class="resource-line">
+            Hyphae: <span id="hyphaeDisplay">0</span>
+          </div>
+          <div class="resource-line">
+            Nutrients: <span id="nutrientsDisplay">0</span>
+          </div>
+          <div class="resource-line">
+            Biomass: <span id="biomassDisplay">0.00</span>
+          </div>
+          <div class="resource-line">
+            Spores: <span id="sporePoolDisplay">0</span>
+          </div>
+          <button id="clickHyphaeBtn">[+] Extend Hyphae</button>
+        </div>
 
-    <!-- Right column: stats, buffs, actions -->
-    <div id="rightColumn">
-      <div class="panel" id="statsPanel">
-        <h2>Stats &amp; Buffs</h2>
-        <div class="stat-line">Run: <span id="runDisplay">1</span></div>
-        <div class="stat-line">Hyphae/click: <span id="hyphaePerClick">0.00</span></div>
-        <div class="stat-line">Hyphae/sec: <span id="hyphaePerSec">0.00</span></div>
-        <div class="stat-line">Nutrients/sec: <span id="nutrientsPerSec">0.00</span></div>
-        <div class="stat-line">Biomass/sec: <span id="biomassPerSec">0.00</span></div>
-        <div class="stat-line">Spores on prestige: <span id="sporesPerPrestige">0</span></div>
-        <div class="stat-line">Parallel Substrates: <span id="simultaneousTargets">1</span></div>
-        <div class="stat-line">Remaining Substrates: <span id="remainingSubstrates">0</span></div>
-        <h3>Active Buffs</h3>
-        <div id="buffsList"><em>No active buffs</em></div>
+        <div class="panel" id="generatorsPanel">
+          <h2>Generators</h2>
+          <div id="generatorsList" class="flex-column"></div>
+        </div>
       </div>
-      <div class="panel" id="actionPanel">
-        <button id="upgradesBtn">Open Upgrades</button>
-        <button id="prestigeBtn">Prestige</button>
+
+      <!-- CENTER: Biome & ASCII substrate diorama -->
+      <div class="column" id="centerColumn">
+        <div class="panel" id="biomePanel">
+          <h2>Biome</h2>
+          <div class="biome-name" id="currentBiomeName">Unknown Biome</div>
+          <div id="biomeBonus" class="subtitle">Biome bonus description</div>
+
+          <div class="biome-stats">
+            <div>
+              Active digestion slots:
+              <span id="activeSlots">0</span> /
+              <span id="maxSlots">1</span>
+            </div>
+            <div>
+              Substrates remaining:
+              <span id="remainingSubstrates">0</span>
+            </div>
+          </div>
+
+          <div id="asciiCanvas"></div>
+
+          <button id="nextBiomeBtn" disabled>Enter Next Biome</button>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <!-- Overlay for mutation selection (displayed on prestige) -->
-  <div id="mutationChoice" class="overlay" style="display:none;">
-    <div class="popup-window">
-      <h2>Choose a Mutation</h2>
-      <div id="mutationOptions"></div>
-      <button id="confirmMutationBtn">Confirm Mutation</button>
-    </div>
-  </div>
+      <!-- RIGHT: Stats, Prestige, Upgrades -->
+      <div class="column" id="rightColumn">
+        <div class="panel" id="statsPanel">
+          <h2>Stats & Buffs</h2>
+          <div>Run: <span id="runDisplay">1</span></div>
+          <!-- You can add more stat lines here later (H/s, N/s, etc.) -->
+        </div>
 
-  <!-- Overlay for upgrades/spore shop -->
-  <div id="upgradeOverlay" class="overlay" style="display:none;">
-    <div class="popup-window">
-      <h2>Permanent Upgrades</h2>
-      <div id="upgradeList"></div>
-      <button id="closeUpgradeBtn">Close</button>
-    </div>
-  </div>
+        <div class="panel" id="prestigePanel">
+          <h2>Prestige & Mutations</h2>
+          <button id="prestigeBtn">Prestige (Reset & Gain Spores)</button>
 
-  <!-- Overlay for tier goal selection and progress -->
-  <div id="goalOverlay" class="overlay" style="display:none;">
-    <div class="popup-window">
-      <h2>Tier Goals</h2>
-      <div id="goalList"></div>
-      <!-- Confirm selection button; hidden until a goal is selected -->
-      <button id="confirmGoalBtn" style="display:none;">Start Run</button>
+          <div id="mutationChoice" class="flex-column" style="display: none;">
+            <h3>Select a Mutation for this Run</h3>
+            <div id="mutationOptions" class="mutation-grid"></div>
+            <button id="confirmMutationBtn">Confirm Mutation Selection</button>
+          </div>
+        </div>
+
+        <div class="panel" id="upgradesPanel">
+          <h2>Permanent Upgrades</h2>
+          <div id="upgradeList"></div>
+        </div>
+      </div>
     </div>
   </div>
 
