@@ -106,6 +106,92 @@ button:disabled {
   color: #8f8;
 }
 
+/* Main layout: three columns for environment, core actions, and stats */
+#mainLayout {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  min-height: 100vh;
+}
+#leftColumn, #centerColumn, #rightColumn {
+  flex: 1;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+#leftColumn {
+  border-right: 1px solid var(--panel-border);
+}
+#rightColumn {
+  border-left: 1px solid var(--panel-border);
+}
+
+/* Environment substrate list styling */
+#substrateList .substrate-item {
+  margin-bottom: 0.5em;
+  font-family: "Courier New", monospace;
+}
+#substrateList .substrate-item code {
+  color: var(--accent);
+}
+
+/* Substrate list container inherits panel styling */
+#substrateList {
+  padding: 0.5rem;
+  background-color: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Info panel for active/remaining substrate counts */
+#substrateInfo {
+  background-color: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  font-family: "Courier New", monospace;
+}
+
+/* Panels in right and center columns */
+#statsPanel .stat-line,
+#resourcePanel .resource-line {
+  margin-bottom: 0.3em;
+}
+
+/* Overlay for pop-up windows */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.popup-window {
+  background-color: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  padding: 1rem;
+  border-radius: 4px;
+  width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* Action panel buttons styling */
+#actionPanel button {
+  width: 100%;
+  margin-bottom: 0.5em;
+}
+
 /* Layout for resource panel splitting left and right */
 .resource-flex {
   display: flex;

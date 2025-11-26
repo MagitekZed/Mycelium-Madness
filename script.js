@@ -253,6 +253,72 @@
   // Track timers for mutations that schedule intervals (e.g. bursts)
   const activeTimers = [];
 
+  // Tier 1 goal definitions. Each goal has an id, description,
+  // a progress function returning a current progress value, and a target.
+  const tier1Goals = [
+    {
+      id: 'goal_hyphae',
+      description: 'Produce 200 Hyphae',
+      progress: () => Math.floor(state.hyphae),
+      target: 200
+    },
+    {
+      id: 'goal_nutrients',
+      description: 'Generate 50 Nutrients',
+      progress: () => Math.floor(state.nutrients),
+      target: 50
+    },
+    {
+      id: 'goal_biomass',
+      description: 'Reach 5 Biomass',
+      progress: () => Math.floor(state.biomass),
+      target: 5
+    },
+    {
+      id: 'goal_decompose_leaves',
+      description: 'Fully decompose 3 Leaf Piles',
+      progress: () => {
+        const biome = biomes[1];
+        if(!biome) return 0;
+        return biome.substrates.filter(s => s.type === 'Leaf Pile' && s.progress >= s.mass).length;
+      },
+      target: 3
+    },
+    {
+      id: 'goal_logs',
+      description: 'Fully decompose 1 Log',
+      progress: () => {
+        const biome = biomes[2];
+        if(!biome) return 0;
+        return biome.substrates.filter(s => s.type === 'Decaying Log' && s.progress >= s.mass).length;
+      },
+      target: 1
+    },
+    {
+      id: 'goal_reach_log',
+      description: 'Reach the Log biome',
+      progress: () => state.currentBiomeIndex >= 2 ? 1 : 0,
+      target: 1
+    },
+    {
+      id: 'goal_generators',
+      description: 'Own 5 Branching Tips',
+      progress: () => state.generators.branching,
+      target: 5
+    },
+    {
+      id: 'goal_leaf_generators',
+      description: 'Own 3 Leaf Decomposers',
+      progress: () => state.generators.leaf,
+      target: 3
+    }
+  ];
+
+  // Store currently selected goals and active goal
+  let currentGoalOptions = [];
+  let selectedGoalIndex = null;
+  let activeGoal = null;
+
   /**
    * Select the next substrate to target for decomposition. If the player
    * has queued a selection (state.selectionQueue), that substrate takes
@@ -329,6 +395,8 @@
     renderGenerators();
     // Update the stats and buffs panel
     updateStatsDisplay();
+    // Update goal progress if a goal is active
+    updateGoalProgress();
   }
 
   // Compute and display global statistics and active buffs
@@ -356,6 +424,18 @@
       const biome = biomes[state.currentBiomeIndex];
       const remaining = biome.substrates.filter(sub => sub.progress < sub.mass).length;
       remainingSpan.innerText = remaining;
+    }
+
+    // Update left column substrate info counts
+    const activeSpan = document.getElementById('activeSlotCount');
+    const maxSpan = document.getElementById('maxSlotCount');
+    const remainingCountSpan = document.getElementById('remainingCount');
+    if(activeSpan) activeSpan.innerText = state.activeSubstrateIds.length;
+    if(maxSpan) maxSpan.innerText = state.simultaneousTargets;
+    if(remainingCountSpan) {
+      const biome = biomes[state.currentBiomeIndex];
+      const remaining = biome.substrates.filter(sub => sub.progress < sub.mass).length;
+      remainingCountSpan.innerText = remaining;
     }
     // Build list of active buffs / multipliers
     const buffsDiv = document.getElementById('buffsList');
@@ -586,7 +666,7 @@
     });
     // Show mutation selection panel
     state.mutationSelectionPending = true;
-    document.getElementById('mutationChoice').style.display = 'block';
+    document.getElementById('mutationChoice').style.display = 'flex';
     const optionsContainer = document.getElementById('mutationOptions');
     optionsContainer.innerHTML = '';
     const shuffled = [...availableMutations].sort(() => Math.random() - 0.5);
@@ -667,6 +747,23 @@
     prestige();
   });
 
+  // Show upgrades overlay when clicking upgrades button
+  const upgradesBtn = document.getElementById('upgradesBtn');
+  if(upgradesBtn) {
+    upgradesBtn.addEventListener('click', () => {
+      // Render upgrades list into overlay and show it
+      renderUpgrades();
+      document.getElementById('upgradeOverlay').style.display = 'flex';
+    });
+  }
+  // Close upgrades overlay button
+  const closeUpgradeBtn = document.getElementById('closeUpgradeBtn');
+  if(closeUpgradeBtn) {
+    closeUpgradeBtn.addEventListener('click', () => {
+      document.getElementById('upgradeOverlay').style.display = 'none';
+    });
+  }
+
   // Initial render
   function initGame() {
     // Apply starting biome bonus
@@ -675,6 +772,10 @@
     renderBiome();
     renderUpgrades();
     updateResourceDisplay();
+    // At the start of a run (runNumber 1 or after prestige), prompt goal selection
+    if(state.runNumber === 1) {
+      openGoalSelection();
+    }
   }
   initGame();
 
@@ -687,4 +788,90 @@
     lastTime = now;
     gameTick(delta);
   }, 250);
+
+  /**
+   * Open the tier goal selection overlay. Randomly selects 3 goals
+   * from the tier1Goals pool. The player must choose one to start
+   * the run. Progress for the selected goal is tracked during
+   * gameplay and displayed in the overlay when reopened.
+   */
+  function openGoalSelection() {
+    // Only open if not already active
+    const overlay = document.getElementById('goalOverlay');
+    if(!overlay) return;
+    // Shuffle and pick 3 goals
+    const shuffled = [...tier1Goals].sort(() => Math.random() - 0.5);
+    currentGoalOptions = shuffled.slice(0, Math.min(3, tier1Goals.length));
+    selectedGoalIndex = null;
+    // Render list
+    const list = document.getElementById('goalList');
+    list.innerHTML = '';
+    currentGoalOptions.forEach((goal, idx) => {
+      const div = document.createElement('div');
+      div.className = 'goal-item';
+      div.innerHTML = `<strong>${goal.description}</strong><br>`;
+      // Add progress bar container
+      const progressBar = document.createElement('div');
+      progressBar.className = 'goal-progress';
+      // We'll update progress later
+      div.appendChild(progressBar);
+      div.addEventListener('click', () => {
+        // Reset border colors on other items
+        Array.from(list.children).forEach(el => {
+          el.style.borderColor = 'var(--panel-border)';
+        });
+        div.style.borderColor = '#ff0';
+        selectedGoalIndex = idx;
+        document.getElementById('confirmGoalBtn').style.display = 'block';
+      });
+      list.appendChild(div);
+    });
+    document.getElementById('confirmGoalBtn').style.display = 'none';
+    overlay.style.display = 'flex';
+  }
+
+  /**
+   * Update goal progress bars and check completion. If the active goal
+   * is complete, display a message and mark it complete. This runs
+   * after each resource update.
+   */
+  function updateGoalProgress() {
+    // If there is no active goal, nothing to update
+    if(!activeGoal) return;
+    const list = document.getElementById('goalList');
+    // find active goal element by index if selectedGoalIndex not null
+    if(list && activeGoal) {
+      currentGoalOptions.forEach((goal, idx) => {
+        const prog = Math.min(goal.progress(), goal.target);
+        const ratio = goal.target > 0 ? prog / goal.target : 0;
+        const bar = list.children[idx].querySelector('.goal-progress');
+        if(bar) {
+          const segments = 10;
+          const filled = Math.round(ratio * segments);
+          bar.textContent = '[' + '#'.repeat(filled) + '.'.repeat(segments - filled) + `] ${prog}/${goal.target}`;
+        }
+      });
+    }
+    // If active goal completed
+    const prog = activeGoal.progress();
+    if(prog >= activeGoal.target && !activeGoal.completed) {
+      activeGoal.completed = true;
+      // Optionally reward spores or just mark complete
+      // Could display notification or automatically progress tier; for now, just show message
+      console.log('Goal completed:', activeGoal.description);
+    }
+  }
+
+  // Handle goal confirmation
+  const confirmGoalBtn = document.getElementById('confirmGoalBtn');
+  if(confirmGoalBtn) {
+    confirmGoalBtn.addEventListener('click', () => {
+      if(selectedGoalIndex === null) return;
+      activeGoal = currentGoalOptions[selectedGoalIndex];
+      // Hide goal overlay
+      document.getElementById('goalOverlay').style.display = 'none';
+      // Initialize progress display immediately
+      updateGoalProgress();
+    });
+  }
 })();
