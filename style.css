@@ -1,20 +1,22 @@
 /*
-  Retro/ASCII inspired styling.  This file defines the dark green
-  terminal‑like look and feel of the Mycelium idle game.  Layout
-  uses flexbox where appropriate and keeps things scalable.  Monospace
-  fonts reinforce the retro vibe.
+  Amber/decay CRT styling for the Mycelium idle game.
+  Layout: 3 main columns with panels. ASCII diorama is
+  centered visually and uses monospace rendering.
 */
+
 :root {
-  /* Amber/decay themed palette reminiscent of old amber CRTs and autumn leaves */
-  --bg: #1a0f00;        /* dark soil background */
-  --fg: #ffb84d;        /* warm amber foreground */
-  --accent: #d48a3a;    /* secondary accent for highlights */
-  --panel-bg: #201000;  /* panel backgrounds slightly lighter */
-  --panel-border: #4d3a0f; /* borders with a muted brown */
+  --bg: #1a0f00;
+  --fg: #ffb84d;
+  --accent: #ffce73;
+  --panel-bg: #2b1400;
+  --panel-border: #7a5226;
+  --dim: #7a5226;
 }
+
 * {
   box-sizing: border-box;
 }
+
 body {
   margin: 0;
   padding: 0;
@@ -24,16 +26,37 @@ body {
   line-height: 1.4;
   overflow-x: hidden;
 }
-h1, h2, h3 {
+
+h1,
+h2,
+h3 {
   margin-top: 0.5em;
   margin-bottom: 0.25em;
   color: var(--accent);
 }
+
 .container {
   padding: 1rem;
   max-width: 1200px;
   margin: auto;
 }
+
+/* Layout: three columns */
+.main-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.column {
+  flex: 1 1 260px;
+}
+
+#centerColumn {
+  flex: 1.3 1 320px;
+}
+
 .panel {
   background-color: var(--panel-bg);
   border: 1px solid var(--panel-border);
@@ -41,11 +64,13 @@ h1, h2, h3 {
   margin-bottom: 1rem;
   border-radius: 4px;
 }
+
 .panel h2 {
   margin-top: 0;
 }
+
 button {
-  background-color: var(--bg);
+  background-color: #3a1b00;
   color: var(--fg);
   border: 1px solid var(--fg);
   border-radius: 3px;
@@ -54,158 +79,122 @@ button {
   font-family: inherit;
   margin: 0.25em 0;
 }
+
+button:hover:not(:disabled) {
+  background-color: #5a2a00;
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Generic flex helpers */
 .flex {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
 }
+
 .flex-column {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
+
+/* Resources */
 .resource-line {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
-.generator-item, .upgrade-item, .mutation-item {
+
+/* Generator / upgrade / mutation cards */
+.generator-item,
+.upgrade-item,
+.mutation-item {
   border: 1px dashed var(--panel-border);
   padding: 0.5em;
   border-radius: 3px;
   margin-bottom: 0.5em;
 }
-.progress-bar {
-  position: relative;
-  background-color: #022;
-  border: 1px solid var(--panel-border);
-  height: 16px;
-  width: 100%;
-  border-radius: 3px;
-  margin-top: 0.25em;
-}
-.progress-bar > .fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  background-color: var(--accent);
-  width: 0%;
-}
+
+/* Biome & ASCII diorama */
 .biome-name {
   font-weight: bold;
   font-size: 1.1em;
   text-decoration: underline;
 }
+
 .subtitle {
   font-style: italic;
-  color: #8f8;
-}
-
-/* Main layout: three columns for environment, core actions, and stats */
-#mainLayout {
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-  min-height: 100vh;
-}
-#leftColumn, #centerColumn, #rightColumn {
-  flex: 1;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-#leftColumn {
-  border-right: 1px solid var(--panel-border);
-}
-#rightColumn {
-  border-left: 1px solid var(--panel-border);
-}
-
-/* Environment substrate list styling */
-#substrateList .substrate-item {
-  margin-bottom: 0.5em;
-  font-family: "Courier New", monospace;
-}
-#substrateList .substrate-item code {
   color: var(--accent);
 }
 
-/* Substrate list container inherits panel styling */
-#substrateList {
-  padding: 0.5rem;
-  background-color: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  border-radius: 4px;
-  margin-bottom: 0.5rem;
-  max-height: 300px;
-  overflow-y: auto;
+.biome-stats {
+  margin: 0.5rem 0 0.75rem 0;
+  font-size: 0.9em;
+  color: var(--dim);
 }
 
-/* Info panel for active/remaining substrate counts */
-#substrateInfo {
-  background-color: var(--panel-bg);
+/* ASCII canvas holding all substrate sprites */
+#asciiCanvas {
+  background-color: #120800;
   border: 1px solid var(--panel-border);
-  padding: 0.5rem;
-  border-radius: 4px;
-  margin-bottom: 0.5rem;
+  border-radius: 3px;
+  padding: 0.75rem;
+  min-height: 10rem;
   font-family: "Courier New", monospace;
+  white-space: pre;
 }
 
-/* Panels in right and center columns */
-#statsPanel .stat-line,
-#resourcePanel .resource-line {
-  margin-bottom: 0.3em;
+/* Each substrate block */
+.ascii-substrate {
+  margin-bottom: 0.75rem;
 }
 
-/* Overlay for pop-up windows */
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999;
-}
-.popup-window {
-  background-color: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  padding: 1rem;
-  border-radius: 4px;
-  width: 400px;
-  max-height: 80vh;
-  overflow-y: auto;
+.ascii-substrate-label {
+  font-size: 0.9em;
+  margin-bottom: 0.1rem;
 }
 
-/* Action panel buttons styling */
-#actionPanel button {
-  width: 100%;
-  margin-bottom: 0.5em;
-}
-
-/* Layout for resource panel splitting left and right */
-.resource-flex {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  align-items: flex-start;
-}
-.resource-left, .resource-right {
-  flex: 1;
-  min-width: 250px;
-}
-.resource-right h3 {
-  margin-top: 0;
-  margin-bottom: 0.5em;
+.ascii-substrate.active .ascii-substrate-label {
   color: var(--accent);
 }
-/* Stats lines reuse resource-line styling but can override color if needed */
+
+.ascii-substrate.selected .ascii-substrate-label {
+  text-decoration: underline;
+}
+
+.ascii-substrate:hover {
+  background-color: rgba(255, 184, 77, 0.08);
+}
+
+/* Upgrade grid: up to 3 columns on wide screens */
+#upgradeList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+/* Mutation grid */
+.mutation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.5rem;
+}
+
+.mutation-item {
+  cursor: pointer;
+}
+
+.mutation-item.selected {
+  border-color: #ffdba3;
+}
+
+/* Small responsiveness tweaks */
+@media (max-width: 900px) {
+  #centerColumn {
+    flex-basis: 100%;
+  }
+}
