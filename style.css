@@ -1,0 +1,125 @@
+/*
+  Retro/ASCII inspired styling.  This file defines the dark green
+  terminal‑like look and feel of the Mycelium idle game.  Layout
+  uses flexbox where appropriate and keeps things scalable.  Monospace
+  fonts reinforce the retro vibe.
+*/
+:root {
+  /* Amber/decay themed palette reminiscent of old amber CRTs and autumn leaves */
+  --bg: #1a0f00;        /* dark soil background */
+  --fg: #ffb84d;        /* warm amber foreground */
+  --accent: #d48a3a;    /* secondary accent for highlights */
+  --panel-bg: #201000;  /* panel backgrounds slightly lighter */
+  --panel-border: #4d3a0f; /* borders with a muted brown */
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Courier New", monospace;
+  background-color: var(--bg);
+  color: var(--fg);
+  line-height: 1.4;
+  overflow-x: hidden;
+}
+h1, h2, h3 {
+  margin-top: 0.5em;
+  margin-bottom: 0.25em;
+  color: var(--accent);
+}
+.container {
+  padding: 1rem;
+  max-width: 1200px;
+  margin: auto;
+}
+.panel {
+  background-color: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+}
+.panel h2 {
+  margin-top: 0;
+}
+button {
+  background-color: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--fg);
+  border-radius: 3px;
+  padding: 0.25em 0.5em;
+  cursor: pointer;
+  font-family: inherit;
+  margin: 0.25em 0;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.flex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.flex-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.resource-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.generator-item, .upgrade-item, .mutation-item {
+  border: 1px dashed var(--panel-border);
+  padding: 0.5em;
+  border-radius: 3px;
+  margin-bottom: 0.5em;
+}
+.progress-bar {
+  position: relative;
+  background-color: #022;
+  border: 1px solid var(--panel-border);
+  height: 16px;
+  width: 100%;
+  border-radius: 3px;
+  margin-top: 0.25em;
+}
+.progress-bar > .fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: var(--accent);
+  width: 0%;
+}
+.biome-name {
+  font-weight: bold;
+  font-size: 1.1em;
+  text-decoration: underline;
+}
+.subtitle {
+  font-style: italic;
+  color: #8f8;
+}
+
+/* Layout for resource panel splitting left and right */
+.resource-flex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.resource-left, .resource-right {
+  flex: 1;
+  min-width: 250px;
+}
+.resource-right h3 {
+  margin-top: 0;
+  margin-bottom: 0.5em;
+  color: var(--accent);
+}
+/* Stats lines reuse resource-line styling but can override color if needed */
